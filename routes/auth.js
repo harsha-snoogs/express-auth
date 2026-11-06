@@ -1,8 +1,7 @@
 const express = require("express");
-const data = require("../data/user");
+const userModel = require("../data/user");
 const bcrypt = require("bcryptjs");
 const router = express.Router();
-const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
 router.post("/register", async (req, res, next) => {
@@ -30,7 +29,8 @@ router.post("/register", async (req, res, next) => {
       });
       return;
     }
-    const emailFound = data.some((item) => item.email === normalizedEmail);
+    const emailFound = await userModel.findOne({ email: normalizedEmail });
+
     if (emailFound) {
       res.status(409).json({
         message: "Email Already exisits",
@@ -38,22 +38,19 @@ router.post("/register", async (req, res, next) => {
       return;
     }
     const hashedPassword = await bcrypt.hash(password, 12);
-    const id = crypto.randomUUID();
-    data.push({
+
+    let newUser = await userModel.create({
       name,
       email: normalizedEmail,
       password: hashedPassword,
-      id,
-      role: "user"
     });
+    console.log(newUser);
 
     res.status(201).json({
       message: "User added succecssfully",
       data: {
-        name,
-        email: normalizedEmail,
-        id,
-        role: "user"
+        name: newUser.name,
+        email: newUser.email,
       },
     });
   } catch (error) {
@@ -85,7 +82,8 @@ router.post("/login", async (req, res) => {
       });
       return;
     }
-    const filteredemail = data.find((obj) => obj.email === normalizedEmail);
+    const filteredemail = await userModel.findOne({ email: normalizedEmail });
+    console.log(filteredemail);
     if (!filteredemail) {
       res.status(401).json({
         message: "Invalid email and password",
@@ -103,7 +101,13 @@ router.post("/login", async (req, res) => {
       });
       return;
     }
-    let token = jwt.sign(filteredemail, process.env.JWT_SECRET, {
+    let jwtpayload = {
+      name: filteredemail.name,
+      email: filteredemail.email,
+      role: filteredemail.role,
+      id: filteredemail._id.toString(),
+    };
+    let token = jwt.sign(jwtpayload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
     res.status(200).json({

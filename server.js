@@ -6,10 +6,10 @@ const authenticate = require("./middleware/authenticate");
 const user = require("./routes/user");
 const cors = require("cors");
 const app = express();
+const connectDB = require("./config/db");
 
 app.use(cors());
 app.use(express.json());
-
 
 app.get("/", authenticate, authorizeRole(["staff"]), (req, res) => {
   res.json({ status: "ok", message: "Reaching server succesfully" });
@@ -19,6 +19,11 @@ app.use("/auth", auth);
 
 app.use("/user", user);
 
-app.listen(3000, () => {
-  console.log("App listening on port 3000");
-});
+startServer();
+
+async function startServer() {
+  await connectDB();
+  app.listen(3000, () => {
+    console.log("App listening on port 3000");
+  });
+}
