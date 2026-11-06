@@ -1,0 +1,118 @@
+const express = require("express");
+const data = require("../data/user");
+const bcrypt = require("bcryptjs");
+const router = express.Router();
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+
+router.post("/register", async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const normalizedEmail =
+      email != undefined && typeof email === "string"
+        ? email.trim().toLowerCase()
+        : email;
+
+    if (
+      name === undefined ||
+      typeof name != "string" ||
+      normalizedEmail === undefined ||
+      typeof normalizedEmail != "string" ||
+      password === undefined ||
+      typeof password != "string" ||
+      name.trim() === "" ||
+      normalizedEmail === "" ||
+      password.trim() === ""
+    ) {
+      res.status(400).json({
+        message: "Invalid email, name, and password",
+      });
+      return;
+    }
+    const emailFound = data.some((item) => item.email === normalizedEmail);
+    if (emailFound) {
+      res.status(409).json({
+        message: "Email Already exisits",
+      });
+      return;
+    }
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const id = crypto.randomUUID();
+    data.push({
+      name,
+      email: normalizedEmail,
+      password: hashedPassword,
+      id,
+      role: "user"
+    });
+
+    res.status(201).json({
+      message: "User added succecssfully",
+      data: {
+        name,
+        email: normalizedEmail,
+        id,
+        role: "user"
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const normalizedEmail =
+      email != undefined && typeof email === "string"
+        ? email.trim().toLowerCase()
+        : email;
+
+    if (
+      typeof normalizedEmail != "string" ||
+      normalizedEmail === undefined ||
+      typeof password != "string" ||
+      password === undefined ||
+      normalizedEmail === "" ||
+      password.trim() === ""
+    ) {
+      res.status(400).json({
+        message: "Invalid email, name, and password",
+      });
+      return;
+    }
+    const filteredemail = data.find((obj) => obj.email === normalizedEmail);
+    if (!filteredemail) {
+      res.status(401).json({
+        message: "Invalid email and password",
+      });
+      return;
+    }
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      filteredemail.password,
+    );
+
+    if (!isPasswordValid) {
+      res.status(401).json({
+        message: "Invalid email and password",
+      });
+      return;
+    }
+    let token = jwt.sign(filteredemail, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    res.status(200).json({
+      message: "Logged in successfully !!!",
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
